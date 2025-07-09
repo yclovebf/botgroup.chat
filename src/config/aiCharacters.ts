@@ -12,8 +12,8 @@ export const modelConfigs = [
   },
   {
     model: "hunyuan-lite",
-    apiKey: "HUNYUAN_API_KEY1",
-    baseURL: "https://api.hunyuan.cloud.tencent.com/v1/chat/completions"
+    apiKey: "HUNYUAN_API_KEY",
+    baseURL: "https://api.hunyuan.cloud.tencent.com/v1"
   },
   {
     model: "doubao-1-5-pro-32k-250115|deepseek-v3",//豆包模型|火山引擎接入点（改成自己的）
