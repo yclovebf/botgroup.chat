@@ -6,9 +6,9 @@ export const modelConfigs = [
     baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   },
   {
-    model: "deepseek-v3-250324",
-    apiKey: "ARK_API_KEY",
-    baseURL: "https://ark.cn-beijing.volces.com/api/v3"
+    //model: "deepseek-chat",
+    //apiKey: "ARK_API_KEY",
+    //baseURL: "https://ark.cn-beijing.volces.com/api/v3"
   },
   {
     model: "hunyuan-turbos-latest",
@@ -16,14 +16,14 @@ export const modelConfigs = [
     baseURL: "https://api.hunyuan.cloud.tencent.com/v1"
   },
   {
-    model: "doubao-1-5-lite-32k-250115",//豆包模型|火山引擎接入点（改成自己的）
+    model: "Doubao-Seed-1.6",//豆包模型|火山引擎接入点（改成自己的）
     apiKey: "ARK_API_KEY",
     baseURL: "https://ark.cn-beijing.volces.com/api/v3"
   },
   {
-    model: "ep-20250306223646-szzkw",//deepseekv火山引擎接入点（改成自己的）
-    apiKey: "ARK_API_KEY1",
-    baseURL: "https://ark.cn-beijing.volces.com/api/v3"
+    //model: "ep-20250306223646-szzkw",//deepseekv火山引擎接入点（改成自己的）
+    //apiKey: "ARK_API_KEY1",
+    //baseURL: "https://ark.cn-beijing.volces.com/api/v3"
   },
   {
     model: "glm-4-air",
