@@ -29,7 +29,7 @@
 2. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
    - 进入Workers > Workers & Pages 页面
    - 点击 "创建" 按钮
-   - 选择 "Pages">"Connect to Git"
+   - 选择 "Pages">"Connect to Git (导入现有 Git 存储库)"
 
 3. 配置部署选项
    - 选择你 fork 的仓库
@@ -141,7 +141,7 @@ APIKEY|对应角色|服务商|申请地址|
 ## 贡献指南
 
 欢迎提交 Pull Request 或提出 Issue。
-加官方微信：`botgroup` 拉你进微信群
+加官方微信号：`botgroup` 拉你进微信群。
 当然也可以加共建QQ群交流：922322461（群号）
 
 ## 跪谢赞助商ORZ

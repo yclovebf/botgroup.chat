@@ -1,17 +1,22 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { MessageSquareIcon, PlusCircleIcon, MenuIcon, PanelLeftCloseIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MessageSquareIcon, PlusCircleIcon, MenuIcon, PanelLeftCloseIcon, Sun, Moon, Monitor, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GitHubButton from 'react-github-btn';
 import '@fontsource/audiowide';
-import { AdSection } from './AdSection';
 import { UserSection } from './UserSection';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useTheme } from '@/hooks/use-theme';
+import { request } from '@/utils/request';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import type { Group } from '@/config/groups';
 
 // 根据群组ID生成固定的随机颜色
 const getRandomColor = (index: number) => {
@@ -32,9 +37,91 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup, groups }: SidebarProps) => {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupDesc, setGroupDesc] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [version, setVersion] = useState('');
+  const { theme, resolvedTheme, setTheme } = useTheme();
+
+  const colorScheme = resolvedTheme === 'dark'
+    ? 'no-preference: dark; light: dark; dark: dark;'
+    : 'no-preference: light; light: light; dark: light;';
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/maojindao55/botgroup.chat/releases/latest')
+      .then(r => r.json())
+      .then(data => { if (data.tag_name) setVersion(data.tag_name); })
+      .catch(() => {});
+  }, []);
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      toast.error('请输入群名');
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await request('/api/claw/create', {
+        method: 'POST',
+        body: JSON.stringify({ name: groupName.trim(), description: groupDesc.trim() })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('创建成功');
+        setShowCreateDialog(false);
+        setGroupName('');
+        setGroupDesc('');
+        window.location.href = `/?id=${groups.length}`;
+      } else {
+        toast.error(data.message || '创建失败');
+      }
+    } catch (error) {
+      toast.error('创建失败，请重试');
+    }
+    setCreating(false);
+  };
   
   return (
     <>
+      {/* 创建群聊弹窗 */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建龙虾群聊</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">群名称</label>
+              <Input
+                placeholder="给你的龙虾群起个名字"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                maxLength={30}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">群描述（选填）</label>
+              <Input
+                placeholder="简单描述一下这个群"
+                value={groupDesc}
+                onChange={(e) => setGroupDesc(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={creating || !groupName.trim()}
+              className="w-full bg-[#ff6600] hover:bg-[#e65c00] text-white"
+            >
+              {creating ? (
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : null}
+              创建群聊
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* 侧边栏 - 在移动设备上可以隐藏，在桌面上始终显示 */}
       <div 
         className={cn(
@@ -43,7 +130,7 @@ const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup,
           isOpen ? "w-48 translate-x-0" : "w-0 md:w-14 -translate-x-full md:translate-x-0"
         )}
       >
-        <div className="h-full border-r bg-background rounded-l-lg overflow-hidden flex flex-col">
+        <div className="h-full border-r bg-card rounded-l-lg overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/40">
             <div className="flex-1 flex items-center">
               <span className={cn(
@@ -92,10 +179,21 @@ const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup,
                 </a>
               ))}
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <a 
+              <a 
+                      href="/ai-game" 
+                      className={cn(
+                        "flex items-center gap-1 rounded-md px-3 py-2.5 text-sm font-medium transition-all hover:bg-accent/80 group mt-3",
+                        !isOpen && "md:justify-center"
+                      )}
+                    >
+                      <Bot className="h-5 w-5 flex-shrink-0 text-rose-500 group-hover:text-rose-600" />
+                      <span className={cn(
+                        "transition-all duration-200 whitespace-nowrap overflow-hidden text-foreground/90",
+                        isOpen ? "opacity-100 max-w-full" : "opacity-0 max-w-0 md:max-w-0"
+                      )}>AI 游戏</span>
+                    </a>
+
+              <a 
                       href="#" 
                       className={cn(
                         "flex items-center gap-1 rounded-md px-3 py-2.5 text-sm font-medium transition-all hover:bg-accent/80 group mt-3",
@@ -103,6 +201,7 @@ const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup,
                       )}
                       onClick={(e) => {
                         e.preventDefault();
+                        setShowCreateDialog(true);
                       }}
                     >
                       <PlusCircleIcon className="h-5 w-5 flex-shrink-0 text-amber-500 group-hover:text-amber-600" />
@@ -111,20 +210,95 @@ const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup,
                         isOpen ? "opacity-100 max-w-full" : "opacity-0 max-w-0 md:max-w-0"
                       )}>创建新群聊</span>
                     </a>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>即将开放,敬请期待</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </nav>
           </div>
           
-          {/* 广告位 */}
+          {/* 广告位 
           <AdSection isOpen={isOpen} />
+          */}
 
           {/* 用户信息模块 */}
           <UserSection isOpen={isOpen} />
+
+          {/* 暗黑模式切换 */}
+          <div className={cn(
+            "px-3 py-1.5 border-t border-border/40",
+            !isOpen && "flex justify-center"
+          )}>
+            {isOpen ? (
+              <div className="flex items-center gap-1 bg-secondary rounded-full p-0.5 w-full justify-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('system')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground transition-all",
+                    theme === 'system' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('light')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground transition-all",
+                    theme === 'light' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Sun className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('dark')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground transition-all",
+                    theme === 'dark' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Moon className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('system')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground",
+                    theme === 'system' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('light')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground",
+                    theme === 'light' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Sun className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setTheme('dark')}
+                  className={cn(
+                    "h-7 w-7 rounded-full text-muted-foreground hover:text-foreground",
+                    theme === 'dark' && "bg-background shadow text-foreground"
+                  )}
+                >
+                  <Moon className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* GitHub Star Button - 只在侧边栏打开时显示，放在底部 */}
           <div className="px-3 py-2 mt-auto">
@@ -140,14 +314,17 @@ const Sidebar = ({ isOpen, toggleSidebar, selectedGroupIndex = 0, onSelectGroup,
                 >
                   botgroup.chat
                 </span>
+                {isOpen && version && (
+                  <span className="text-[10px] text-gray-400 ml-1 self-end mb-0.5">{version}</span>
+                )}
               </a>
             </div>
             
             {isOpen && (
               <div className="flex items-center justify-left h-8">
-                <GitHubButton 
+                <GitHubButton
                   href="https://github.com/maojindao55/botgroup.chat"
-                  data-color-scheme="no-preference: light; light: light; dark: light;"
+                  data-color-scheme={colorScheme}
                   data-size="large"
                   data-show-count="true"
                   aria-label="Star maojindao55/botgroup.chat on GitHub"

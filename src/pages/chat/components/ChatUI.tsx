@@ -20,8 +20,10 @@ import rehypeKatex from 'rehype-katex'
 import { SharePoster } from '@/pages/chat/components/SharePoster';
 import { MembersManagement } from '@/pages/chat/components/MembersManagement';
 import Sidebar from './Sidebar';
+import ClawChatUI from './ClawChatUI';
 import { AdBanner, AdBannerMobile } from './AdSection';
 import { useUserStore } from '@/store/userStore';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getAvatarData } from '@/utils/avatar';
 
 
@@ -55,10 +57,12 @@ const KaTeXStyle = () => (
 
 const ChatUI = () => {
   const userStore = useUserStore();
+  const isMobile = useIsMobile();
 
   //获取url参数
   const urlParams = new URLSearchParams(window.location.search);
   const id = urlParams.get('id')? parseInt(urlParams.get('id')!) : 0;
+  const joinGroupId = urlParams.get('join');
   // 1. 所有的 useState 声明
   const [groups, setGroups] = useState([]);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(id);
@@ -71,13 +75,21 @@ const ChatUI = () => {
   const [allNames, setAllNames] = useState([]);
   const [showMembers, setShowMembers] = useState(false);
   const [messages, setMessages] = useState([]);
-  const [showAd, setShowAd] = useState(true);
+  const [showAd, setShowAd] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [pendingContent, setPendingContent] = useState("");
+  const [initError, setInitError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [mutedUsers, setMutedUsers] = useState<string[]>([]);
   const [showPoster, setShowPoster] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // 默认关闭，稍后根据设备类型设置
+
+  // 根据设备类型设置侧边栏默认状态
+  useEffect(() => {
+    if (isMobile !== undefined) {
+      setSidebarOpen(!isMobile); // 手机端关闭，PC端开启
+    }
+  }, [isMobile]);
 
   // 2. 所有的 useRef 声明
   const currentMessageRef = useRef<number | null>(null);
@@ -97,13 +109,37 @@ const ChatUI = () => {
 
     const initData = async () => {
       try {
+        if (joinGroupId) {
+          try {
+            await request('/api/claw/join', {
+              method: 'POST',
+              body: JSON.stringify({ groupId: joinGroupId })
+            });
+          } catch (e) {
+            console.error('Failed to join group:', e);
+          }
+          window.history.replaceState({}, '', '/');
+        }
+
         const response = await request(`/api/init`);
         if (!response.ok) {
           throw new Error('初始化数据失败');
         }
         const {data} = await response.json();
         console.log("初始化数据", data);
-        const group = data.groups[selectedGroupIndex];
+
+        let groupIndex = selectedGroupIndex;
+        if (joinGroupId) {
+          const idx = data.groups.findIndex((g: any) => g.clawGroupId === joinGroupId || g.id === joinGroupId);
+          if (idx >= 0) groupIndex = idx;
+        }
+
+        const group = data.groups[groupIndex];
+        if (!group) {
+          setInitError('群聊不存在或无权访问');
+          setIsInitializing(false);
+          return;
+        }
         const characters = data.characters;
         setGroups(data.groups);
         setGroup(group);
@@ -144,6 +180,7 @@ const ChatUI = () => {
         ]);
       } catch (error) {
         console.error("初始化数据失败:", error);
+        setInitError('加载失败，请刷新重试');
         setIsInitializing(false);
       }
     };
@@ -207,9 +244,27 @@ const ChatUI = () => {
   };
 
   // 5. 加载检查
+  if (initError) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-orange-50/70 to-orange-100 dark:from-background dark:via-background dark:to-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🦞</div>
+          <p className="text-lg font-medium text-foreground mb-2">{initError}</p>
+          <p className="text-sm text-muted-foreground mb-6">请检查链接是否正确，或联系群主获取邀请</p>
+          <button
+            onClick={() => { window.location.href = '/'; }}
+            className="px-6 py-2 bg-[#ff6600] text-white rounded-lg hover:bg-[#e55c00] transition-colors"
+          >
+            返回首页
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isInitializing || !group) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-orange-50/70 to-orange-100 flex items-center justify-center">
+      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-orange-50/70 to-orange-100 dark:from-background dark:via-background dark:to-background flex items-center justify-center">
         <div className="w-8 h-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
       </div>
     );
@@ -413,16 +468,26 @@ const ChatUI = () => {
 
   // 处理群组选择
   const handleSelectGroup = (index: number) => {
-    //进行跳转到?id=index
     window.location.href = `?id=${index}`;
     return;
   };
 
+  if (group.type === 'openclaw') {
+    return (
+      <ClawChatUI
+        group={group}
+        groups={groups}
+        selectedGroupIndex={selectedGroupIndex}
+        onSelectGroup={handleSelectGroup}
+      />
+    );
+  }
+
   return (
     <>
       <KaTeXStyle />
-      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-orange-50/70 to-orange-100 flex items-start md:items-center justify-center overflow-hidden">
-        <div className="h-full flex bg-white w-full mx-auto relative shadow-xl md:max-w-5xl md:h-[96dvh] md:my-auto md:rounded-lg">
+      <div className="fixed inset-0 bg-gradient-to-br from-orange-50 via-orange-50/70 to-orange-100 dark:from-background dark:via-background dark:to-background flex items-start md:items-center justify-center overflow-hidden">
+        <div className="h-full flex bg-card w-full mx-auto relative shadow-xl md:max-w-5xl md:h-[96dvh] md:my-auto md:rounded-lg">
           {/* 传递 selectedGroupIndex 和 onSelectGroup 回调给 Sidebar */}
           <Sidebar 
             isOpen={sidebarOpen} 
@@ -435,7 +500,7 @@ const ChatUI = () => {
           {/* 聊天主界面 */}
           <div className="flex flex-col flex-1">
             {/* Header */}
-            <header className="bg-white shadow flex-none md:rounded-t-lg">
+            <header className="bg-card shadow dark:shadow-none dark:border-b flex-none md:rounded-t-lg">
               <div className="flex items-center justify-between px-0 py-1.5">
                 {/* 左侧群组信息 */}
                 <div className="flex items-center md:px-2.5">
@@ -452,10 +517,11 @@ const ChatUI = () => {
                 
                 {/* 右侧头像组和按钮 */}
                 <div className="flex items-center">
-                {/* 广告位 手机端不展示*/}
+                {/* 广告位 手机端不展示 */}
                  <div className="hidden md:block">
                    <AdBanner show={showAd} closeAd={() => setShowAd(false)} />
                  </div>
+                
                   <div className="flex -space-x-2 ">
                     {users.slice(0, 4).map((user) => {
                       const avatarData = getAvatarData(user.name);
@@ -463,7 +529,7 @@ const ChatUI = () => {
                         <TooltipProvider key={user.id}>
                           <Tooltip>
                             <TooltipTrigger>
-                              <Avatar className="w-7 h-7 border-2 border-white">
+                              <Avatar className="w-7 h-7 border-2 border-card">
                                 {'avatar' in user && user.avatar && user.avatar !== null ? (
                                   <AvatarImage src={user.avatar} />
                                 ) : (
@@ -481,7 +547,7 @@ const ChatUI = () => {
                       );
                     })}
                     {users.length > 4 && (
-                      <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs border-2 border-white">
+                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs border-2 border-card">
                         +{users.length - 4}
                       </div>
                     )}
@@ -494,7 +560,7 @@ const ChatUI = () => {
             </header>
 
             {/* Main Chat Area */}
-            <div className="flex-1 overflow-hidden bg-gray-100">
+            <div className="flex-1 overflow-hidden bg-muted">
 
               <ScrollArea className={`h-full ${!showAd ? 'px-2 py-1' : ''} md:px-2 md:py-1`} ref={chatAreaRef}>
                 <div className="md:hidden">
@@ -516,9 +582,9 @@ const ChatUI = () => {
                         </Avatar>
                       )}
                       <div className={message.sender.name === userStore.userInfo.nickname ? "text-right" : ""}>
-                        <div className="text-sm text-gray-500">{message.sender.name}</div>
+                        <div className="text-sm text-muted-foreground">{message.sender.name}</div>
                         <div className={`mt-1 p-3 rounded-lg shadow-sm chat-message ${
-                          message.sender.name === userStore.userInfo.nickname ? "bg-blue-500 text-white text-left" : "bg-white"
+                          message.sender.name === userStore.userInfo.nickname ? "bg-blue-500 text-white text-left" : "bg-card"
                         }`}>
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm, remarkMath]}
@@ -550,7 +616,7 @@ const ChatUI = () => {
                             [&_ol]:my-2
                             [&_li]:my-1
                             [&_blockquote]:border-l-4
-                            [&_blockquote]:border-gray-300
+                            [&_blockquote]:border-border
                             [&_blockquote]:pl-4
                             [&_blockquote]:my-2
                             [&_blockquote]:italic`}
@@ -579,14 +645,14 @@ const ChatUI = () => {
                   {/* 添加一个二维码 */}
                   <div id="qrcode" className="flex flex-col items-center hidden">
                     <img src="/img/qr.png" alt="QR Code" className="w-24 h-24" />
-                    <p className="text-sm text-gray-500 mt-2 font-medium tracking-tight bg-gray-50 px-3 py-1 rounded-full">扫码体验AI群聊</p>
+                    <p className="text-sm text-muted-foreground mt-2 font-medium tracking-tight bg-muted px-3 py-1 rounded-full">扫码体验AI群聊</p>
                   </div>
                 </div>
               </ScrollArea>
             </div>
 
             {/* Input Area */}
-            <div className="bg-white border-t py-3 px-2 md:rounded-b-lg">
+            <div className="bg-card border-t py-3 px-2 md:rounded-b-lg">
               <div className="flex gap-1 pb-[env(safe-area-inset-bottom)]">
                 {messages.length > 0 && (
                   <TooltipProvider>
